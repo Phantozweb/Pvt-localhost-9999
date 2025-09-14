@@ -1,0 +1,5 @@
+{
+  "name": "Focus-IN Certificate Tool",
+  "description": "A tool to generate a personalized certificate with a name overlaid on an image and prepare it for sending via email using the mailto function.",
+  "requestFramePermissions": []
+}

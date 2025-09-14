@@ -1,0 +1,172 @@
+<div class="p-4 sm:p-6 lg:p-8">
+  <div class="container mx-auto max-w-7xl">
+    <h1 class="text-3xl font-bold mb-2">Bulk Processing Dashboard</h1>
+    <p class="text-slate-600 dark:text-slate-400 mb-8">Upload a CSV, choose a template, and send personalized images in batches.</p>
+
+    <!-- Step 1: Upload CSV -->
+    <div class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-md mb-8">
+      <h2 class="text-xl font-semibold mb-4">1. Upload Recipient List</h2>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">Upload a CSV file with 'name' and 'email' columns.</p>
+      <input 
+        type="file"
+        accept=".csv"
+        (change)="onCsvFileSelected($event)"
+        class="block w-full max-w-sm text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-slate-700 dark:file:text-indigo-300 dark:hover:file:bg-slate-600"
+      />
+    </div>
+
+    @if (totalRecipients() > 0) {
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        <!-- Left Column: Controls & Stats -->
+        <div class="lg:col-span-1 space-y-8">
+          <!-- Step 2: Controls -->
+          <div class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-md">
+            <h2 class="text-xl font-semibold mb-4">2. Configure & Send</h2>
+            <div class="space-y-4">
+              <div>
+                <label for="templateSelect" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Select Template</label>
+                <select 
+                  id="templateSelect"
+                  [value]="selectedTemplateName()"
+                  (change)="onTemplateSelected($event)"
+                  class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                  [disabled]="savedTemplates().length === 0"
+                >
+                  @if (savedTemplates().length === 0) {
+                    <option value="">No templates saved</option>
+                  } @else {
+                    @for (template of savedTemplates(); track template.name) {
+                      <option [value]="template.name">{{ template.name }}</option>
+                    }
+                  }
+                </select>
+                 <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">
+                    After selecting a template, use the 'Send' button next to each person in the 'Pending' list.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stats -->
+          <div class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-md">
+            <h2 class="text-xl font-semibold mb-4">Statistics</h2>
+            <div class="space-y-4">
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="text-base font-medium text-slate-700 dark:text-slate-300">Overall Progress</span>
+                  <span class="text-sm font-medium text-slate-700 dark:text-slate-300">{{ sentRecipients().length }} / {{ totalRecipients() }} Sent</span>
+                </div>
+                <div class="w-full bg-slate-200 rounded-full h-2.5 dark:bg-slate-700">
+                  <div class="bg-indigo-600 h-2.5 rounded-full" [style.width.%]="progress()"></div>
+                </div>
+              </div>
+
+              <!-- Pie Chart -->
+              <div class="flex items-center justify-center space-x-6 pt-4">
+                <svg class="w-32 h-32" viewBox="0 0 36 36">
+                  <path class="text-slate-200 dark:text-slate-700" fill="currentColor" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                  <path class="text-indigo-500" fill="currentColor" 
+                    [attr.d]="chartData().sentPathD"
+                  />
+                </svg>
+                <div class="text-sm space-y-2">
+                  <div class="flex items-center">
+                    <span class="w-3 h-3 rounded-full bg-indigo-500 mr-2"></span>
+                    <span>Sent: {{ chartData().sent }}</span>
+                  </div>
+                  <div class="flex items-center">
+                    <span class="w-3 h-3 rounded-full bg-slate-200 dark:bg-slate-700 mr-2"></span>
+                    <span>Pending: {{ chartData().pending }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Right Column: Lists -->
+        <div class="lg:col-span-2 space-y-8">
+            <!-- Pending List -->
+            <div class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-md">
+                <h2 class="text-xl font-semibold mb-4">Pending ({{ pendingRecipients().length }})</h2>
+                <div class="max-h-96 overflow-y-auto">
+                    @if (pendingRecipients().length > 0) {
+                      <ul class="divide-y divide-slate-200 dark:divide-slate-700">
+                          @for (recipient of pendingRecipients(); track recipient.id) {
+                              <li class="py-3 flex justify-between items-center">
+                                  <div>
+                                      <p class="font-medium">{{ recipient.name }}</p>
+                                      <p class="text-sm text-slate-500 dark:text-slate-400">{{ recipient.email }}</p>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    (click)="sendToRecipient(recipient)"
+                                    [disabled]="processingRecipientId() === recipient.id || !selectedTemplateName()"
+                                    class="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-slate-800 focus:ring-indigo-500 disabled:bg-slate-400 dark:disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors w-24"
+                                  >
+                                    @if (processingRecipientId() === recipient.id) {
+                                      <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                      </svg>
+                                    } @else {
+                                      <span>Send</span>
+                                    }
+                                  </button>
+                              </li>
+                          }
+                      </ul>
+                    } @else {
+                      <p class="text-slate-500 dark:text-slate-400">No recipients pending.</p>
+                    }
+                </div>
+            </div>
+            <!-- Sent List -->
+            <div class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-md">
+                <h2 class="text-xl font-semibold mb-4">Sent ({{ sentRecipients().length }})</h2>
+                <div class="max-h-96 overflow-y-auto">
+                    @if (sentRecipients().length > 0) {
+                      <ul class="divide-y divide-slate-200 dark:divide-slate-700">
+                          @for (recipient of sentRecipients(); track recipient.id) {
+                              <li class="py-3 flex justify-between items-center">
+                                  <div class="text-slate-500 dark:text-slate-400">
+                                      <p class="font-medium line-through">{{ recipient.name }}</p>
+                                      <p class="text-sm">{{ recipient.email }}</p>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    (click)="sendToRecipient(recipient)"
+                                    [disabled]="processingRecipientId() === recipient.id || !selectedTemplateName()"
+                                    class="inline-flex items-center justify-center p-2 border border-transparent text-sm font-medium rounded-full text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-slate-800 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                    title="Resend"
+                                  >
+                                    @if (processingRecipientId() === recipient.id) {
+                                      <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                      </svg>
+                                    } @else {
+                                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.899 2.186l-2.001.866a5.002 5.002 0 00-8.9-1.589V5a1 1 0 01-2 0V3a1 1 0 011-1zm12 10a1 1 0 01-1 1v-2.101a7.002 7.002 0 01-11.899-2.186l2.001-.866a5.002 5.002 0 008.9 1.589V15a1 1 0 012 0v-3a1 1 0 01-1-1z" clip-rule="evenodd" />
+                                      </svg>
+                                    }
+                                  </button>
+                              </li>
+                          }
+                      </ul>
+                     } @else {
+                      <p class="text-slate-500 dark:text-slate-400">No recipients have been processed yet.</p>
+                    }
+                </div>
+            </div>
+        </div>
+      </div>
+    } @else {
+        <div class="text-center py-16 bg-white dark:bg-slate-800 rounded-lg shadow-md">
+            <h2 class="text-xl font-semibold text-slate-700 dark:text-slate-300">Ready to start?</h2>
+            <p class="text-slate-500 dark:text-slate-400 mt-2">Upload your CSV file above to load recipients.</p>
+        </div>
+    }
+  </div>
+</div>
